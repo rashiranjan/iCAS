@@ -1,0 +1,95 @@
+/* iCAS: Infant Car Alert System                                                /
+/  This is a program which runs on the Arduino Uno and additional sensors       /
+/  to create a device which prevents heat stroke deaths of children in vehicles /                                                                  /
+/                                                        Rashi Ranjan          */
+//Powered by the Arduino, GSM is attached on top of the Arduino.
+
+#include <SoftwareSerial.h> //GSM Identification
+
+SoftwareSerial SIM900(7, 8);
+
+//Temperature Sensor connected to power, ground and Analog output 
+
+#include <dht.h> 
+
+#define dht_dpin A0 //Analog output is given to Arduino
+
+float carTemp;
+
+dht myTempSensor;
+
+int dopplerValue = 0; // output of Doppler sensor
+
+void setup() 
+{
+ pinMode(A3,INPUT);
+ //pinMode(6, OUTPUT); //Buzzer's Output Pin
+ Serial.begin(9600); // sets up serial monitor communication at 9600 bits/sec
+ SIM900.begin(19200); // sets up GSM communication at 19200 bits/sec
+ SIM900power(); // powering up GSM shield
+ delay(30000);  // give time to log on to network 
+}
+
+void loop() 
+{
+  dopplerValue = analogRead(A3);
+  myTempSensor.read11(dht_dpin); // reading the temperature
+  carTemp = (myTempSensor.temperature*9/5) + 32;
+  Serial.println(carTemp);
+  Serial.println (dopplerValue);
+  
+  if (carTemp > 82)
+  { 
+    if (dopplerValue)
+    {
+      Serial.println("Alarm activated...");    
+      beep(500); 
+      Serial.println("Dangerous temperature: Sending SMS message");    
+      sendSMS();
+      // sendSMS2();
+      Serial.println("Sending SMS message DONE");
+      delay(180000);
+    }
+    else
+    {
+      loop;
+    }
+  }
+  else
+  {
+    Serial.println("Baby is safe right now.");
+    delay (5000);
+  }
+}
+void SIM900power()
+// software equivalent of pressing the GSM shield "power" button
+{
+ digitalWrite(9, HIGH);
+ delay(1000);
+ digitalWrite(9, LOW);
+ delay(5000);
+}
+void sendSMS()
+{
+  // SIM900 communication code borrowed from
+ // http://www.geeetech.com/wiki/index.php/Arduino_GPRS_Shield
+ SIM900.print("AT+CMGF=1\r"); // AT command to send SMS message
+ delay(100);
+ SIM900.println("AT + CMGS = \"+14084256398\"");  // recipient's mobile number
+ delay(100);
+  // message to send
+ SIM900.println("iCAS ALERT: A Child has been left in the car alone. Please rescue quickly!"); 
+ delay(100);
+ SIM900.println((char)26);  
+ delay(100); 
+ SIM900.println();
+ delay(5000);               // give module time to send SMS
+ SIM900power();             // turn off module
+}
+void beep(unsigned char delayms){
+  analogWrite(6, 200);      // Almost any value can be used except 0 and 255 - experiment to get the best tone
+  delay(delayms);          // wait for a delayms ms
+  analogWrite(6, 0);       // 0 turns it off
+  delay(delayms);          // wait for a delayms ms   
+} 
+
